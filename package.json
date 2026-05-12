@@ -1,0 +1,45 @@
+{
+  "name": "carapace-mail-runtime",
+  "version": "1.0.0",
+  "description": "Provider-agnostic mail processing runtime for OpenClaw — rule engine, action registry, and dispatch pipeline",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JeffSteinbok/carapace-mail-runtime.git"
+  },
+  "keywords": [
+    "openclaw",
+    "mail",
+    "email",
+    "rules",
+    "actions",
+    "pipeline"
+  ],
+  "author": "Jeff Steinbok",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5",
+    "vitest": "^2.1.8"
+  }
+}
