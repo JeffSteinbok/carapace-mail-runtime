@@ -1,17 +1,26 @@
 # 📬 carapace-mail-runtime
 
-> **🚧 Work in Progress** — This project is under active development and not ready for consumption yet. If you're interested, subscribe to this repo to get notified when it's ready.
-
 [![CI](https://github.com/JeffSteinbok/carapace-mail-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/JeffSteinbok/carapace-mail-runtime/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/carapace-mail-runtime)](https://www.npmjs.com/package/carapace-mail-runtime)
 
 Provider-agnostic mail processing runtime for [OpenClaw](https://github.com/JeffSteinbok/openclaw). Separates **where mail comes from** from **what you do with it** — any mail source (FastMail, Outlook, webhooks) shares the same rule engine and action handlers.
 
 ## Install
 
+This package is not yet published to npm. Install directly from GitHub:
+
 ```bash
-npm install carapace-mail-runtime
+npm install github:JeffSteinbok/carapace-mail-runtime
 ```
+
+Or in `package.json`:
+
+```json
+"dependencies": {
+  "carapace-mail-runtime": "github:JeffSteinbok/carapace-mail-runtime"
+}
+```
+
+The package includes a `prepare` script that runs `tsc` automatically during install, so `dist/` is built on the fly — no pre-built artifacts need to be committed.
 
 ## Features
 
