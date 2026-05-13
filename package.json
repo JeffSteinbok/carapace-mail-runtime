@@ -1,6 +1,6 @@
 {
   "name": "carapace-mail-runtime",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "🦞🐚 Provider-agnostic mail processing runtime for OpenClaw — rule engine, action registry, and dispatch pipeline",
   "type": "module",
   "main": "dist/index.js",
