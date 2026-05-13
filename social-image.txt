@@ -1,8 +1,0 @@
-CARAPACE
-
-Mail Runtime
-
-Provider-agnostic mail processing engine for OpenClaw.
-Rule-based action dispatch, plugin extensions, and result routing.
-
-• Rule Engine  • Action Plugins  • Provider Agnostic  • Extensible
