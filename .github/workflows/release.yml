@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   ci:
@@ -114,9 +115,7 @@ jobs:
           git push origin "v${{ steps.version.outputs.new }}"
 
       - name: Publish to npm
-        run: npm publish --access public --tag ${{ steps.version.outputs.npm_tag }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.npm-token }}
+        run: npm publish --access public --provenance --tag ${{ steps.version.outputs.npm_tag }}
 
       - name: Create GitHub release (draft)
         env:
