@@ -1,4 +1,4 @@
-# 📬 carapace-mail-runtime
+# 🦞🐚📬 carapace-mail-runtime
 
 [![CI](https://github.com/JeffSteinbok/carapace-mail-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/JeffSteinbok/carapace-mail-runtime/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/carapace-mail-runtime?logo=npm)](https://www.npmjs.com/package/carapace-mail-runtime)
