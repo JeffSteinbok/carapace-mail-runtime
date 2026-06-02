@@ -71,7 +71,14 @@ export function buildNotifyEmailAction(options: {
     }
     const prefix = mailboxPrefixResolver(ctx.envelope);
     const bodyRaw = ctx.envelope.body_text ?? ctx.envelope.body_html ?? "";
-    const snippet = bodyRaw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+    const snippet = bodyRaw
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")  // strip style blocks
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ") // strip script blocks
+      .replace(/<[^>]+>/g, " ")                           // strip all tags
+      .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+      .replace(/&#?\w+;/g, " ")                           // strip remaining entities
+      .replace(/\s+/g, " ").trim()
+      .slice(0, 100);
     const snippetStr = snippet ? ` — ${snippet}` : "";
     return [{ kind: "message", payload: { message: `${prefix}${message}${snippetStr}` } }];
   };
