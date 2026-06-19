@@ -125,6 +125,7 @@ export function buildPromptEmailAction(
 
     const includeBody = Boolean(params["include_body"] ?? false);
     const agent = (params["agent"] as string | undefined) ?? defaultAgent;
+    const sessionKey = (params["session"] as string | undefined)?.trim() || undefined;
 
     const { sender_name, sender_email, subject } = ctx.envelope;
     const senderStr = sender_name ? `${sender_name} <${sender_email}>` : sender_email;
@@ -144,9 +145,11 @@ export function buildPromptEmailAction(
     }
 
     const message = lines.join("\n");
-    ctx.logger(`prompt_email: handing off to agent ${agent} | sender=${sender_email} | subject=${subject}`);
+    ctx.logger(
+      `prompt_email: handing off to agent ${agent}${sessionKey ? ` (session=${sessionKey})` : ""} | sender=${sender_email} | subject=${subject}`,
+    );
 
-    return [{ kind: "agent_handoff", payload: { agent, message } }];
+    return [{ kind: "agent_handoff", payload: { agent, message, ...(sessionKey ? { session: sessionKey } : {}) } }];
   };
 }
 
