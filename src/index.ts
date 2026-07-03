@@ -17,6 +17,7 @@ export {
 export {
   formatMessage,
   buildNotifyEmailAction,
+  buildPromptEmailAction,
   registerBuiltinActions,
 } from "./builtin-actions.js";
 

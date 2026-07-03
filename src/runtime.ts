@@ -226,6 +226,25 @@ export function ruleMatches(
           return false;
         break;
       }
+      case "sender_domain_not":
+        if (matchesAnyDomain(senderDomain(envelope.sender_email), expected)) return false;
+        break;
+      case "sender_email_not":
+        if (matchesAnyExact(envelope.sender_email, expected)) return false;
+        break;
+      case "subject_not_contains":
+        if (matchesAnyContains(envelope.subject, expected)) return false;
+        break;
+      case "subject_not_regex": {
+        const patterns = toList(expected);
+        if (patterns.some((p) => new RegExp(String(p), "i").test(envelope.subject ?? "")))
+          return false;
+        break;
+      }
+      case "body_not_contains":
+        if (body === null) body = bodyText(envelope);
+        if (matchesAnyContains(body, expected)) return false;
+        break;
       case "body_contains":
         if (body === null) body = bodyText(envelope);
         if (!matchesAnyContains(body, expected)) return false;
