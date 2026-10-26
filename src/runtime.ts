@@ -280,6 +280,58 @@ export function ruleMatches(
 }
 
 // ---------------------------------------------------------------------------
+// describeRuleMatch
+// ---------------------------------------------------------------------------
+
+function truncate(value: string, max = 60): string {
+  return value.length > max ? value.slice(0, max - 1) + "…" : value;
+}
+
+// For list conditions, the first entry that matched; otherwise the configured value.
+function matchedValue(envelope: MailEnvelope, key: string, expected: unknown): string {
+  const items = toList(expected);
+  let hit: unknown;
+  switch (key) {
+    case "sender_email":
+      hit = items.find((i) => matchesAnyExact(envelope.sender_email, i));
+      break;
+    case "sender_domain":
+      hit = items.find((i) => matchesAnyDomain(senderDomain(envelope.sender_email), i));
+      break;
+    case "sender_name_contains":
+      hit = items.find((i) => matchesAnyContains(envelope.sender_name, i));
+      break;
+    case "subject":
+      hit = items.find((i) => matchesAnyExact(envelope.subject, i));
+      break;
+    case "subject_contains":
+      hit = items.find((i) => matchesAnyContains(envelope.subject, i));
+      break;
+    case "subject_prefix":
+      hit = items.find((i) => matchesAnyPrefix(envelope.subject, i));
+      break;
+    case "subject_regex":
+      hit = items.find((p) => new RegExp(String(p), "i").test(envelope.subject ?? ""));
+      break;
+    case "body_contains":
+      hit = items.find((i) => matchesAnyContains(bodyText(envelope), i));
+      break;
+  }
+  return truncate(String(hit ?? (Array.isArray(expected) ? expected.join("|") : expected)));
+}
+
+/** Why a matched rule matched: its conditions, or "catch-all" when it has none. */
+export function describeRuleMatch(
+  envelope: MailEnvelope,
+  rule: Record<string, unknown>,
+): string {
+  const match = (rule["match"] as Record<string, unknown>) ?? {};
+  const keys = Object.keys(match);
+  if (keys.length === 0) return "catch-all";
+  return keys.map((key) => `${key}=${matchedValue(envelope, key, match[key])}`).join(", ");
+}
+
+// ---------------------------------------------------------------------------
 // selectMatchingRules
 // ---------------------------------------------------------------------------
 
@@ -321,7 +373,9 @@ export async function executeRules(
   if (matched.length > 0) {
     logger(
       "matched mail rule(s): " +
-        matched.map((r) => (r["id"] as string) ?? "<unnamed>").join(", ") +
+        matched
+          .map((r) => `${(r["id"] as string) ?? "<unnamed>"} (${describeRuleMatch(envelope, r)})`)
+          .join(", ") +
         ` | sender=${envelope.sender_email} | subject=${envelope.subject}`,
     );
   }

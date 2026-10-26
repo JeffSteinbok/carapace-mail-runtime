@@ -10,6 +10,7 @@ export {
   ActionRegistry,
   normalizeAction,
   ruleMatches,
+  describeRuleMatch,
   selectMatchingRules,
   executeRules,
 } from "./runtime.js";
