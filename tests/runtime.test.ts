@@ -4,6 +4,7 @@ import {
   ActionRegistry,
   normalizeAction,
   ruleMatches,
+  describeRuleMatch,
   selectMatchingRules,
   executeRules,
   type MailEnvelope,
@@ -259,8 +260,67 @@ describe("selectMatchingRules", () => {
 });
 
 // ---------------------------------------------------------------------------
+// describeRuleMatch
+// ---------------------------------------------------------------------------
+describe("describeRuleMatch", () => {
+  it("catch-all when there are no conditions", () => {
+    expect(describeRuleMatch(envelope(), { id: "r1" })).toBe("catch-all");
+    expect(describeRuleMatch(envelope(), { id: "r1", match: {} })).toBe("catch-all");
+  });
+
+  it("names the list entry that matched", () => {
+    const rule = { match: { sender_email: ["bob@example.com", "alice@example.com"] } };
+    expect(describeRuleMatch(envelope(), rule)).toBe("sender_email=alice@example.com");
+  });
+
+  it("lists every condition", () => {
+    const rule = {
+      match: { sender_domain: ["example.com"], subject_contains: "world", sender_email_not: ["x@y.z"] },
+    };
+    expect(describeRuleMatch(envelope(), rule)).toBe(
+      "sender_domain=example.com, subject_contains=world, sender_email_not=x@y.z",
+    );
+  });
+
+  it("shows configured values for negative and boolean conditions", () => {
+    const rule = { match: { subject_not_contains: ["spam", "promo"], has_attachments: false } };
+    expect(describeRuleMatch(envelope(), rule)).toBe(
+      "subject_not_contains=spam|promo, has_attachments=false",
+    );
+  });
+
+  it("truncates long values", () => {
+    const long = "x".repeat(100);
+    const rule = { match: { subject_not_contains: long } };
+    expect(describeRuleMatch(envelope(), rule)).toBe(`subject_not_contains=${"x".repeat(59)}…`);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // executeRules
 // ---------------------------------------------------------------------------
+describe("executeRules match log", () => {
+  const ruleWorkspace = "_test_workspace_execute_rules_log_ts";
+  afterEach(() => rmSync(ruleWorkspace, { recursive: true, force: true }));
+
+  it("logs why each rule matched", async () => {
+    const provider = {} as unknown as MailProviderClient;
+    const logger = vi.fn();
+    const rules = [
+      { id: "github", match: { sender_domain: ["github.com", "example.com"] }, continue: true },
+      { id: "notify-all", match: {} },
+    ];
+    await executeRules(envelope(), rules, new ActionRegistry(), provider, {
+      workspace: ruleWorkspace,
+      logger,
+    });
+    expect(logger).toHaveBeenCalledWith(
+      "matched mail rule(s): github (sender_domain=example.com), notify-all (catch-all)" +
+        " | sender=alice@example.com | subject=Hello World",
+    );
+  });
+});
+
 describe("executeRules", () => {
   const workspace = "_test_workspace_execute_rules_ts";
 
