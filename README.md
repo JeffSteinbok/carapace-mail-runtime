@@ -90,7 +90,7 @@ export const register: ActionPlugin['register'] = (registry) => {
 | Action | Description |
 |--------|-------------|
 | `notify_email` | Formats envelope into a notification message with calendar response detection |
-| `prompt_email` | Hands the email to an agent with a prompt (`agent`, `prompt`, `include_body`, `session`). The email is wrapped between a random per-message boundary behind an injection guard; returns an `agent_handoff` result |
+| `prompt_email` | Hands the email to an agent with a prompt (`agent`, `prompt`, `include_body`, `session`, and `reply_channel`/`reply_to` for where the reply goes when the agent has no session on that channel). The email is wrapped between a random per-message boundary behind an injection guard; returns an `agent_handoff` result |
 
 > **Note:** `detect_tracking` is available as an external ActionPlugin from [carapace-package-tracking](https://github.com/JeffSteinbok/carapace-package-tracking).
 

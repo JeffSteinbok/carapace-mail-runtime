@@ -173,3 +173,18 @@ describe("buildPromptEmailAction", () => {
     expect(run({ body_text: "x" })).not.toContain(boundary!);
   });
 });
+
+describe("prompt_email reply routing", () => {
+  it("passes reply_channel and reply_to through the handoff payload", async () => {
+    const { buildPromptEmailAction } = await import("../src/builtin-actions.js");
+    const action = buildPromptEmailAction();
+    const ctx = {
+      envelope: { message_id: "m", provider: "p", account_id: "a", mailbox_id: null, sender_name: "", sender_email: "x@example.com", subject: "Hi" },
+      provider_client: {} as never, workspace: "/tmp", logger: () => {}, config: {}, artifacts: {},
+    };
+    const [result] = action(ctx, { prompt: "Summarize", agent: "mail", reply_channel: "imessage", reply_to: "owner@example.com" });
+    expect(result.payload).toMatchObject({ agent: "mail", reply_channel: "imessage", reply_to: "owner@example.com" });
+    const [plain] = action(ctx, { prompt: "Summarize" });
+    expect(plain.payload).not.toHaveProperty("reply_channel");
+  });
+});

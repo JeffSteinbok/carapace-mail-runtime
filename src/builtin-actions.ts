@@ -133,6 +133,10 @@ export function buildPromptEmailAction(
     const includeBody = Boolean(params["include_body"] ?? false);
     const agent = (params["agent"] as string | undefined) ?? defaultAgent;
     const sessionKey = (params["session"] as string | undefined)?.trim() || undefined;
+    // Where the agent's reply is delivered, for agents with no session on that
+    // channel yet (e.g. a sandboxed reader agent replying over iMessage).
+    const replyChannel = (params["reply_channel"] as string | undefined)?.trim() || undefined;
+    const replyTo = (params["reply_to"] as string | undefined)?.trim() || undefined;
 
     const { sender_name, sender_email, subject } = ctx.envelope;
     const senderStr = sender_name ? `${sender_name} <${sender_email}>` : sender_email;
@@ -167,7 +171,16 @@ export function buildPromptEmailAction(
       `prompt_email: handing off to agent ${agent}${sessionKey ? ` (session=${sessionKey})` : ""} | sender=${sender_email} | subject=${subject}`,
     );
 
-    return [{ kind: "agent_handoff", payload: { agent, message, ...(sessionKey ? { session: sessionKey } : {}) } }];
+    return [{
+      kind: "agent_handoff",
+      payload: {
+        agent,
+        message,
+        ...(sessionKey ? { session: sessionKey } : {}),
+        ...(replyChannel ? { reply_channel: replyChannel } : {}),
+        ...(replyTo ? { reply_to: replyTo } : {}),
+      },
+    }];
   };
 }
 
