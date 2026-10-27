@@ -4,6 +4,13 @@
 
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import {
+  commandEvaluator,
+  runGate,
+  type DecisionEvaluator,
+  type DecisionGateConfig,
+  type DecisionsConfig,
+} from "./decisions.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -372,12 +379,38 @@ export async function executeRules(
     workspace: string;
     logger: (msg: string) => void;
     config?: Record<string, unknown>;
+    /** Overrides the transport built from config.decisions (tests, other hosts). */
+    decisionEvaluator?: DecisionEvaluator;
   },
 ): Promise<[Record<string, unknown>[], ActionResult[]]> {
   const { workspace, logger, config } = options;
   mkdirSync(workspace, { recursive: true });
   const matched = selectMatchingRules(envelope, rules, logger);
   const results: ActionResult[] = [];
+
+  // A rule with "gate" runs its actions only when that decision gate passes.
+  // An unknown or empty gate skips the actions (fail closed on config errors).
+  const decisionsCfg = (config?.["decisions"] ?? {}) as DecisionsConfig;
+  const gates = (config?.["decision_gates"] ?? {}) as Record<string, DecisionGateConfig>;
+  let evaluator = options.decisionEvaluator;
+  const gatePasses = async (name: string, ruleId: string): Promise<boolean> => {
+    const gate = gates[name];
+    if (!gate || !gate.questions || Object.keys(gate.questions).length === 0) {
+      logger(`rule ${ruleId} names decision gate ${name}, which isn't configured; skipping its actions`);
+      return false;
+    }
+    let gateEnvelope = envelope;
+    if ((gate.body_chars ?? 1500) > 0 && !envelope.body_html && !envelope.body_text) {
+      try {
+        gateEnvelope = await providerClient.fetchBody(envelope);
+      } catch (error) {
+        logger(`decision gate ${name}: couldn't fetch the body (${error}); deciding without it`);
+      }
+    }
+    evaluator ??= commandEvaluator(decisionsCfg);
+    const verdict = await runGate(name, gate, gateEnvelope, ruleId, decisionsCfg, evaluator, logger);
+    return verdict.pass;
+  };
 
   if (matched.length > 0) {
     logger(
@@ -391,6 +424,8 @@ export async function executeRules(
 
   for (const rule of matched) {
     const ruleId = (rule["id"] as string) ?? "<unnamed>";
+    const gateName = rule["gate"] as string | undefined;
+    if (gateName && !(await gatePasses(gateName, ruleId))) continue;
     const actions = (rule["actions"] as unknown[]) ?? [];
     for (const actionCfg of actions) {
       const [actionName, params] = normalizeAction(actionCfg as string | Record<string, unknown>);

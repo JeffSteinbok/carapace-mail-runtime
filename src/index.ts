@@ -23,3 +23,18 @@ export {
 } from "./builtin-actions.js";
 
 export { dispatchResults } from "./result-dispatch.js";
+
+export {
+  type DecisionsConfig,
+  type DecisionGateConfig,
+  type GateQuestion,
+  type DecisionRequest,
+  type DecisionOutcome,
+  type DecisionEvaluator,
+  type GateVerdict,
+  DEFAULT_COMMAND,
+  commandEvaluator,
+  buildGateRequest,
+  judge,
+  runGate,
+} from "./decisions.js";
