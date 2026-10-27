@@ -338,11 +338,20 @@ export function describeRuleMatch(
 export function selectMatchingRules(
   envelope: MailEnvelope,
   rules: Record<string, unknown>[],
+  logger?: (msg: string) => void,
 ): Record<string, unknown>[] {
   const matches: Record<string, unknown>[] = [];
   for (const rule of rules) {
     if ((rule["enabled"] ?? true) === false) continue;
-    if (ruleMatches(envelope, rule)) {
+    let matched: boolean;
+    try {
+      matched = ruleMatches(envelope, rule);
+    } catch (error) {
+      // A broken rule (bad regex, unknown condition) skips only itself.
+      logger?.(`error evaluating mail rule ${(rule["id"] as string) ?? "<unnamed>"}: ${error}`);
+      continue;
+    }
+    if (matched) {
       matches.push(rule);
       if (!rule["continue"]) break;
     }
@@ -367,7 +376,7 @@ export async function executeRules(
 ): Promise<[Record<string, unknown>[], ActionResult[]]> {
   const { workspace, logger, config } = options;
   mkdirSync(workspace, { recursive: true });
-  const matched = selectMatchingRules(envelope, rules);
+  const matched = selectMatchingRules(envelope, rules, logger);
   const results: ActionResult[] = [];
 
   if (matched.length > 0) {
@@ -381,43 +390,48 @@ export async function executeRules(
   }
 
   for (const rule of matched) {
+    const ruleId = (rule["id"] as string) ?? "<unnamed>";
     const actions = (rule["actions"] as unknown[]) ?? [];
     for (const actionCfg of actions) {
       const [actionName, params] = normalizeAction(actionCfg as string | Record<string, unknown>);
-      const action = registry.get(actionName);
-      logger(`running mail action ${actionName} for rule ${(rule["id"] as string) ?? "<unnamed>"}`);
-
-      const ctx: ActionContext = {
-        envelope: { ...envelope },
-        provider_client: providerClient,
-        workspace,
-        logger,
-        config: config ?? {},
-        artifacts: {},
-      };
-
       let tempDir: string | null = null;
 
-      if (action.needs_body) {
-        ctx.envelope = await providerClient.fetchBody(ctx.envelope);
-      }
-
-      if (action.attachment_request) {
-        tempDir = mkdtempSync(join(workspace, `mail-${actionName}-`));
-        const request = { ...action.attachment_request };
-        const downloaded = await providerClient.downloadAttachments(ctx.envelope, tempDir, {
-          content_types: (request["content_types"] as string[]) ?? undefined,
-          inline_only: (request["inline_only"] as boolean) ?? undefined,
-          include_body_html: (request["include_body_html"] as boolean) ?? false,
-        });
-        ctx.artifacts["download_dir"] = tempDir;
-        ctx.artifacts["downloaded_files"] = downloaded;
-        logger(`downloaded ${downloaded.length} artifact(s) for action ${actionName}`);
-      }
-
+      // Each action runs on its own: one failing must not drop the others'
+      // results or skip the remaining rules.
       try {
+        const action = registry.get(actionName);
+        logger(`running mail action ${actionName} for rule ${ruleId}`);
+
+        const ctx: ActionContext = {
+          envelope: { ...envelope },
+          provider_client: providerClient,
+          workspace,
+          logger,
+          config: config ?? {},
+          artifacts: {},
+        };
+
+        if (action.needs_body) {
+          ctx.envelope = await providerClient.fetchBody(ctx.envelope);
+        }
+
+        if (action.attachment_request) {
+          tempDir = mkdtempSync(join(workspace, `mail-${actionName}-`));
+          const request = { ...action.attachment_request };
+          const downloaded = await providerClient.downloadAttachments(ctx.envelope, tempDir, {
+            content_types: (request["content_types"] as string[]) ?? undefined,
+            inline_only: (request["inline_only"] as boolean) ?? undefined,
+            include_body_html: (request["include_body_html"] as boolean) ?? false,
+          });
+          ctx.artifacts["download_dir"] = tempDir;
+          ctx.artifacts["downloaded_files"] = downloaded;
+          logger(`downloaded ${downloaded.length} artifact(s) for action ${actionName}`);
+        }
+
         const actionResults = (await action.handler(ctx, params)) ?? [];
         results.push(...actionResults);
+      } catch (error) {
+        logger(`error in mail action ${actionName} for rule ${ruleId}: ${error}`);
       } finally {
         if (tempDir && !params["keep_downloads"]) {
           rmSync(tempDir, { recursive: true, force: true });

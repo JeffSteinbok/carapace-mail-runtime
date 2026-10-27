@@ -462,4 +462,58 @@ describe("executeRules", () => {
     const ctxArg = handler.mock.calls[0][0];
     expect(ctxArg.config).toEqual({ key: "value" });
   });
+
+  it("keeps running other actions and rules when one action fails", async () => {
+    const registry = new ActionRegistry();
+    registry.register("boom", () => {
+      throw new Error("kaboom");
+    });
+    registry.register("ok", () => [{ kind: "log", payload: { message: "ok" } }]);
+    const rules = [
+      { id: "r1", match: {}, actions: ["boom", "missing_action", "ok"], continue: true },
+      { id: "r2", match: {}, actions: ["ok"] },
+    ];
+    const provider = {} as MailProviderClient;
+    const logger = vi.fn();
+
+    const [matched, results] = await executeRules(envelope(), rules, registry, provider, {
+      workspace,
+      logger,
+    });
+
+    expect(matched).toHaveLength(2);
+    expect(results).toHaveLength(2);
+    const logs = logger.mock.calls.map((c) => String(c[0]));
+    expect(logs.some((l) => l.includes("error in mail action boom") && l.includes("kaboom"))).toBe(true);
+    expect(logs.some((l) => l.includes("Unknown mail action: missing_action"))).toBe(true);
+  });
+
+  it("removes the temp directory when downloading attachments fails", async () => {
+    const registry = new ActionRegistry();
+    registry.register("needs_files", vi.fn(), { attachment_request: { content_types: ["image/*"] } });
+    const provider = {
+      downloadAttachments: vi.fn().mockRejectedValue(new Error("graph timeout")),
+    } as unknown as MailProviderClient;
+
+    await executeRules(envelope(), [{ id: "r", match: {}, actions: ["needs_files"] }], registry, provider, {
+      workspace,
+      logger: vi.fn(),
+    });
+
+    const { readdirSync } = await import("node:fs");
+    expect(readdirSync(workspace).filter((f) => f.startsWith("mail-"))).toEqual([]);
+  });
+});
+
+describe("selectMatchingRules error isolation", () => {
+  it("skips a broken rule and still matches later ones", () => {
+    const logger = vi.fn();
+    const rules = [
+      { id: "bad-regex", match: { subject_regex: "([" } },
+      { id: "typo", match: { subjekt: "x" } },
+      { id: "good", match: { sender_domain: "example.com" } },
+    ];
+    expect(selectMatchingRules(envelope(), rules, logger).map((r) => r["id"])).toEqual(["good"]);
+    expect(logger).toHaveBeenCalledTimes(2);
+  });
 });
